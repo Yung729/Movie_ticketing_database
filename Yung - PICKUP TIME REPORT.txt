@@ -1,0 +1,67 @@
+
+
+ALTER SESSION SET NLS_DATE_FORMAT = 'DD-MON-YYYY HH:MI AM';
+
+CLEAR SCREEN
+CLEAR COLUMNS
+CLEAR BREAKS
+CLEAR COMPUTES
+SET VERIFY OFF
+SET PAGESIZE 30
+SET LINESIZE 120
+
+SELECT DISTINCT state from region;
+
+PROMPT Branch Finder From Region
+PROMPT ===========================================
+ACCEPT state_input CHAR PROMPT 'Enter State:'
+
+SELECT branch_id AS "Branch Id",name AS "Branch Name" 
+FROM branch
+WHERE region_id IN (SELECT region_id FROM region WHERE state = UPPER('&state_input'))
+ORDER BY "Branch Id";
+
+PROMPT Stock Balance Quantity Report
+PROMPT Please select from Branch ID above
+PROMPT ===================================
+ACCEPT branchID_input CHAR FORMAT 'A11' PROMPT 'Enter branchID : '
+CLEAR SCREEN
+
+--Format
+BREAK ON "Branch" SKIP 1 ON "Custname" SKIP 1 ON "Item" SKIP 1  ON "Paymentid" SKIP 1
+COLUMN "Branch" FORMAT A28 TRUNCATE
+COLUMN "Custname" FORMAT A20 
+COLUMN "Item" FORMAT A15
+COLUMN "Pickup Time" FORMAT A11
+COLUMN "Movie ShowTime" FORMAT A15
+
+--Title
+TTITLE RIGHT 'Page:' FORMAT 999 SQL.PNO -
+	 LEFT 'Viewed On ' _DATE SKIP 2 -
+	 CENTER 'Iten Pick Up Time Report '  SKIP 3
+
+BTITLE SKIP -
+	  CENTER 'END OF REPORT' SKIP 1
+
+--query
+SELECT b.branch_id || '-' || b.name AS "Branch",c.name AS "Custname", p.payment_id AS "Paymentid", i.name AS "Item", 
+ip.quantity AS "Quantity", TO_CHAR(s.showtime, 'HH:MI AM') AS "Movie ShowTime", 
+TO_CHAR(s.showtime - INTERVAL '15' MINUTE, 'HH:MI AM') AS "Pickup Time"
+FROM customer c
+JOIN payment p ON c.customer_id = p.customer_id
+JOIN item_payment ip ON p.payment_id = ip.payment_id
+JOIN item i ON ip.item_id = i.item_id
+JOIN branch b ON b.branch_id = i.branch_id
+JOIN ticket t ON ip.payment_id = t.payment_id
+JOIN schedule s ON t.schedule_id = s.schedule_id
+WHERE b.branch_id = UPPER('&branchID_input') 
+GROUP BY b.branch_id || '-' || b.name ,c.name, p.payment_id, i.name, ip.quantity, s.showtime
+ORDER BY b.branch_id || '-' || b.name ,c.name, p.payment_id, i.name, ip.quantity, s.showtime;
+
+
+
+TTITLE OFF
+BTITLE OFF
+CLEAR COLUMNS
+CLEAR BREAKS
+

@@ -1,0 +1,51 @@
+
+ALTER SESSION SET NLS_DATE_FORMAT = 'DD-MON-YYYY HH:MI AM';
+
+CLEAR SCREEN
+CLEAR COLUMNS
+CLEAR BREAKS
+CLEAR COMPUTES
+SET VERIFY OFF
+SET PAGESIZE 30
+SET LINESIZE 120
+
+CLEAR SCREEN
+PROMPT Item Sales Report Follow By Month and Year
+PROMPT ===========================================
+ACCEPT year CHAR PROMPT 'Enter Year  (YYYY) :'
+ACCEPT month CHAR PROMPT 'Enter Month (MM) :'
+CLEAR SCREEN
+
+--Format
+BREAK ON "Branch" SKIP 2
+COMPUTE SUM label 'Total : ' OF Quantity "Total Price (RM)" ON BRANCH
+COLUMN "Branch" FORMAT A40
+COLUMN "Item" FORMAT A40
+COLUMN "Price" FORMAT $999,999.99
+COLUMN "Quantity" FORMAT 999
+COLUMN "Total Price (RM)" FORMAT $99,990.99
+
+--Title
+TTITLE  RIGHT 'Page:' FORMAT 999 SQL.PNO -
+	 LEFT 'Viewed On ' _DATE SKIP 2 -
+	CENTER 'Item Sales Report in' ' ' &month '/' &year SKIP 3 
+	
+
+BTITLE SKIP -
+	  CENTER 'END OF REPORT' SKIP 1
+
+--query
+SELECT b.name "Branch", io.item_id || '-'|| i.name "Item", i.price "Price",
+    	 SUM(io.quantity) "Quantity" , i.price * SUM(io.quantity) "Total Price (RM)"
+FROM item i JOIN item_payment io ON i.item_id = io.item_id
+    		JOIN payment p ON p.payment_id = io.payment_id
+    		JOIN branch b ON b.branch_id = i.branch_id
+WHERE EXTRACT(YEAR FROM TO_DATE(p.payment_date, 'DD-MON-YYYY HH:MI AM')) = &year AND
+	EXTRACT(MONTH FROM TO_DATE(p.payment_date, 'DD-MON-YYYY HH:MI AM')) = &month
+GROUP BY b.name, io.item_id ||'-'|| i.name, i.price
+ORDER BY b.name,i.price * SUM(io.quantity);
+
+TTITLE OFF
+BTITLE OFF
+CLEAR COLUMNS
+CLEAR BREAKS

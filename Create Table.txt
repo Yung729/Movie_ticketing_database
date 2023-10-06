@@ -1,0 +1,164 @@
+CREATE TABLE region(
+	region_id CHAR(3),
+	zone VARCHAR(20) NOT NULL,
+	state VARCHAR(20) NOT NULL,
+	country VARCHAR(20) DEFAULT 'MALAYSIA' NOT NULL,
+    PRIMARY KEY(region_id)
+);
+
+CREATE TABLE branch(
+    branch_id CHAR(4),
+    name VARCHAR(30) NOT NULL,
+    opening_time CHAR(5) DEFAULT '10:00' NOT NULL,
+    closing_time CHAR(5) DEFAULT '02:00' NOT NULL,
+    address VARCHAR(100) NOT NULL,
+    postcode CHAR(5) NOT NULL,
+    region_id CHAR(3) NOT NULL,
+    PRIMARY KEY(branch_id),
+    FOREIGN KEY(region_id) REFERENCES region(region_id),
+    CONSTRAINT check_opening_time CHECK(REGEXP_LIKE(opening_time, '^[0-1][0-9]:[0-5][0-9]$|^2[0-3]:[0-5][0-9]$')),
+    CONSTRAINT check_closing_time CHECK(REGEXP_LIKE(closing_time, '^[0-1][0-9]:[0-5][0-9]$|^2[0-3]:[0-5][0-9]$'))
+);
+
+CREATE TABLE hall(
+    hall_id CHAR(5),
+    floor NUMBER(1) NOT NULL,
+    num NUMBER(2) NOT NULL,
+    hall_type VARCHAR(8) DEFAULT 'STANDARD' NOT NULL,
+    branch_id CHAR(4) NOT NULL,
+    PRIMARY KEY(hall_id),
+    FOREIGN KEY(branch_id) REFERENCES branch(branch_id),
+    CONSTRAINT check_hall_type CHECK(UPPER(hall_type) IN('STANDARD','IMAX','BEANIE','INDULGE','CHILL'))
+);
+
+CREATE TABLE employee(
+    employee_id CHAR(8),
+    name VARCHAR(30) NOT NULL,
+    phone VARCHAR(12) NOT NULL,
+    position VARCHAR(25) NOT NULL,
+    salary NUMBER(8,2) DEFAULT '1500.00' NOT NULL,
+	join_date DATE DEFAULT SYSDATE NOT NULL,
+    branch_id CHAR(4) NOT NULL,
+    PRIMARY KEY(employee_id),
+    FOREIGN KEY(branch_id) REFERENCES branch(branch_id),
+    CONSTRAINT check_employee_phone CHECK(REGEXP_LIKE(phone, '^01[0-9]-[0-9]{7,8}$'))
+);
+
+CREATE TABLE seat(
+    seat_id CHAR(7),
+    position CHAR(3) NOT NULL,
+    seat_type CHAR(6) DEFAULT 'SINGLE' NOT NULL,
+    hall_id CHAR(5) NOT NULL,
+    PRIMARY KEY(seat_id),
+    FOREIGN KEY(hall_id) REFERENCES hall(hall_id),
+    CONSTRAINT check_seat_type CHECK(UPPER(seat_type) IN('SINGLE','DOUBLE'))
+);
+
+CREATE TABLE movie(
+	movie_id CHAR(6),
+	name VARCHAR(50) NOT NULL,
+	genre VARCHAR(30) NOT NULL,
+	description VARCHAR(500) NOT NULL,
+	content_rating CHAR(3) DEFAULT 'U' NOT NULL,
+	release_date DATE DEFAULT SYSDATE,
+    PRIMARY KEY(movie_id),
+    CONSTRAINT check_content_rating CHECK(UPPER(content_rating) IN('U','P12','13','16','18'))
+);
+
+CREATE TABLE schedule(
+    schedule_id CHAR(10),
+    showtime DATE NOT NULL,
+    endtime DATE NOT NULL,
+    movie_id CHAR(6) NOT NULL,
+    hall_id CHAR(5) NOT NULL,
+    PRIMARY KEY(schedule_id),
+    FOREIGN KEY(movie_id) REFERENCES movie(movie_id),
+    FOREIGN KEY(hall_id) REFERENCES hall(hall_id)
+);
+
+CREATE TABLE schedule_seat(
+	schedule_id CHAR(10),
+    seat_id CHAR(7),
+    PRIMARY KEY(schedule_id,seat_id),
+    FOREIGN KEY(schedule_id) REFERENCES schedule(schedule_id),
+	FOREIGN KEY(seat_id) REFERENCES seat(seat_id)
+);
+
+CREATE TABLE customer(
+    customer_id CHAR(10),
+    name VARCHAR(50) NOT NULL,
+    gender CHAR(1),
+    email VARCHAR(40) UNIQUE NOT NULL,
+    phone VARCHAR(12),
+    password CHAR(8) NOT NULL,
+    membership CHAR(3) DEFAULT 'NO' NOT NULL,
+    PRIMARY KEY(customer_id),
+    CONSTRAINT check_gender CHECK(UPPER(gender) IN('M','F')),
+    CONSTRAINT check_mail CHECK(REGEXP_LIKE(email,'^[a-zA-Z]\w+@(\S+)$')),
+    CONSTRAINT check_customer_phone CHECK(REGEXP_LIKE(phone, '^01[0-9]-[0-9]{7,8}$')),
+    CONSTRAINT check_membership CHECK(UPPER(membership) IN('NO','YES','VIP'))
+);
+
+CREATE TABLE payment(
+	payment_id CHAR(12),
+	payment_date DATE DEFAULT SYSDATE NOT NULL,
+	discount NUMBER(3,2),
+	tax NUMBER(3,2),
+	bank_name VARCHAR(30) NOT NULL, 	
+	card_no CHAR(19) NOT NULL, 
+	bank_transaction_no VARCHAR(20) NOT NULL,
+	status CHAR(10) DEFAULT 'PROCESSING' NOT NULL,
+	customer_id CHAR(10) NOT NULL,
+    PRIMARY KEY(payment_id),
+	FOREIGN KEY(customer_id) REFERENCES customer(customer_id),
+	CONSTRAINT check_card_no CHECK(REGEXP_LIKE(card_no, '^[0-9]{4}-[0-9]{4}-[0-9]{4}-[0-9]{4}$')),
+	CONSTRAINT check_payment_status CHECK(UPPER(status) IN('PROCESSING','COMPLETED','REJECTED'))
+);
+
+CREATE TABLE ticket(
+	ticket_id CHAR(12),
+	price NUMBER(6,2) DEFAULT '15.00' NOT NULL,
+	schedule_id CHAR(10) NOT NULL,
+    seat_id CHAR(7) NOT NULL,
+	payment_id CHAR(12) NOT NULL,
+    PRIMARY KEY(ticket_id),
+    FOREIGN KEY(schedule_id) REFERENCES schedule(schedule_id),
+	FOREIGN KEY(seat_id) REFERENCES seat(seat_id),
+	FOREIGN KEY(payment_id) REFERENCES payment(payment_id)
+);
+
+CREATE TABLE refund(
+	refund_id CHAR(8),
+	reason VARCHAR(255) NOT NULL,
+	status CHAR(8) DEFAULT 'PENDING' NOT NULL,
+	refund_date DATE DEFAULT SYSDATE NOT NULL,
+    ticket_id CHAR(12) NOT NULL,
+    employee_id CHAR(8) NOT NULL,
+    PRIMARY KEY(refund_id),
+    FOREIGN KEY(ticket_id) REFERENCES ticket(ticket_id),
+    FOREIGN KEY(employee_id) REFERENCES employee(employee_id),
+    CONSTRAINT check_refund_status CHECK(UPPER(status) IN('PENDING','APPROVED','REJECTED'))
+);
+
+CREATE TABLE item(
+    item_id CHAR(5),
+    name VARCHAR(30) NOT NULL,
+    price NUMBER(6,2) NOT NULL,
+    stock NUMBER(6) NOT NULL,
+    minimum_stock NUMBER(6) DEFAULT 20,
+    branch_id CHAR(4) NOT NULL,
+    PRIMARY KEY(item_id),
+    FOREIGN KEY(branch_id) REFERENCES branch(branch_id),
+    CONSTRAINT check_stock CHECK(stock >= 0 AND stock = ROUND(stock)),
+    CONSTRAINT check_minimum_stock CHECK(minimum_stock >= 0 AND minimum_stock = ROUND(minimum_stock))
+);
+
+CREATE TABLE item_payment(
+	item_id CHAR(5), 
+	payment_id CHAR(12),
+	quantity NUMBER(3) DEFAULT 1 NOT NULL,
+    PRIMARY KEY(item_id,payment_id),
+    FOREIGN KEY(item_id) REFERENCES item(item_id),
+    FOREIGN KEY(payment_id) REFERENCES payment(payment_id), 
+	CONSTRAINT check_quantity CHECK(quantity > 0)
+);

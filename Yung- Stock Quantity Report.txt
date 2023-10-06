@@ -1,0 +1,64 @@
+--date format
+ALTER SESSION SET NLS_DATE_FORMAT = 'DD-MON-YYYY HH:MI AM';
+
+CLEAR SCREEN
+CLEAR COLUMNS
+CLEAR BREAKS
+CLEAR COMPUTES
+SET VERIFY OFF
+SET PAGESIZE 25
+SET LINESIZE 120
+
+SELECT DISTINCT state from region;
+
+PROMPT Branch Finder From Region
+PROMPT ===========================================
+ACCEPT state_input CHAR PROMPT 'Enter State:'
+
+SELECT branch_id AS "Branch Id",name AS "Branch Name" 
+FROM branch
+WHERE region_id IN (SELECT region_id FROM region WHERE state = UPPER('&state_input'))
+ORDER BY "Branch Id";
+
+PROMPT Stock Balance Quantity Report
+PROMPT Please select from Branch ID above
+PROMPT ===================================
+ACCEPT branchID_input CHAR FORMAT 'A11' PROMPT 'Enter branchID : '
+CLEAR SCREEN
+
+--Format
+COLUMN "Branch"  FORMAT A35 TRUNCATE  
+COLUMN "Item" FORMAT A30 TRUNCATE
+COLUMN "Quantity Sold" FORMAT 9999
+COLUMN "Balance" FORMAT 9999
+COLUMN "STOCK CHECK" FORMAT A15
+BREAK ON "Branch" SKIP 1 ON "Item" SKIP 1
+
+
+--Title
+TTITLE RIGHT 'Page:' FORMAT 999 SQL.PNO -
+	 LEFT 'Viewed On ' _DATE SKIP 2 -
+	 CENTER 'Stock Quantity Report in' ' ' &branchID_input SKIP 3
+
+BTITLE SKIP -
+	  CENTER 'END OF REPORT' SKIP 1
+
+--query
+SELECT b.branch_id || '-' || b.name AS "Branch" , io.item_id || '-' || i.name AS "Item",
+	 SUM(io.quantity) AS "Quantity Sold" , i.stock - SUM(io.quantity) AS "Balance", 
+	 i.minimum_stock AS "Minimum Stock",
+	 CASE
+           WHEN i.stock - SUM(io.quantity) < i.minimum_stock THEN 'OUT OF STOCK'
+           ELSE 'ENOUGH'
+       END AS "STOCK CHECK"
+FROM item i LEFT JOIN item_payment io ON i.item_id = io.item_id
+    		JOIN branch b ON b.branch_id = i.branch_id
+WHERE b.branch_id = UPPER('&branchID_input') 
+GROUP BY b.branch_id || '-' || b.name, io.item_id || '-' || i.name , i.stock , i.minimum_stock
+ORDER BY b.branch_id || '-' || b.name, io.item_id || '-' || i.name, i.stock - SUM(io.quantity) , i.minimum_stock;
+
+
+TTITLE OFF
+BTITLE OFF
+CLEAR COLUMNS
+CLEAR BREAKS
